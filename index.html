@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZSAGames — Globalne Rankingi OHKO & Speedrun</title>
+    <style>
+        :root {
+            --bg-deep: #050d20;
+            --bg-panel: rgba(12, 26, 54, 0.88);
+            --border-glow: rgba(255, 255, 255, 0.22);
+            --text-main: #f4f7ff;
+            --gold: #e6c15a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Tło w stylu PS3 XMB */
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(2, 5, 14, 0.78) 100%);
+        }
+
+        /* Kontener główny rankingu */
+        .lb-container {
+            position: relative;
+            z-index: 10;
+            width: 92vw;
+            max-width: 640px;
+            height: 82vh;
+            max-height: 720px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-glow);
+            border-radius: 14px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            backdrop-filter: blur(8px);
+        }
+
+        .lb-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .lb-title-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lb-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            color: #ffffff;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .lb-sub {
+            font-size: 0.75rem;
+            color: rgba(230, 238, 255, 0.6);
+            letter-spacing: 0.5px;
+        }
+
+        /* Wybór gry */
+        .game-selector-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .game-btn {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .game-btn.active {
+            background: linear-gradient(135deg, #1b3b73, #0b1936);
+            border-color: var(--gold);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(230, 193, 90, 0.35);
+        }
+
+        /* Wybór trybu (Speedrun / OHKO) - poprawny przełącznik */
+        .mode-selector-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, rgba(230, 193, 90, 0.25), rgba(180, 130, 30, 0.15));
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 0 10px rgba(230, 193, 90, 0.25);
+        }
+
+        /* Lista rankingowa */
+        .lb-list-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+        }
+
+        .lb-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .lb-list-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .lb-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: rgba(10, 20, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.9rem;
+            transition: transform 0.15s ease;
+        }
+
+        .lb-row:hover {
+            transform: translateX(3px);
+            background: rgba(16, 32, 66, 0.85);
+        }
+
+        .lb-player {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lb-rank {
+            font-weight: 800;
+            width: 32px;
+            color: var(--gold);
+        }
+
+        .lb-name {
+            font-weight: 500;
+        }
+
+        .lb-score {
+            font-weight: 700;
+            font-family: monospace;
+            letter-spacing: 0.5px;
+        }
+
+        .lb-footer {
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 10px;
+        }
+
+        .back-link {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="lb-container">
+        <div class="lb-header">
+            <div class="lb-title-group">
+                <span class="lb-title">ZSAGames Leaderboards</span>
+                <span class="lb-sub">Oficjalne rankingi turniejowe ZSA w Łomży</span>
+            </div>
+            <a href="index.html" class="back-link">◀ Powrót do menu</a>
+        </div>
+
+        <!-- Wybór gry -->
+        <div class="game-selector-group">
+            <button class="game-btn active" id="btn-game-dave" onclick="selectGame('dave')">Przygoda Dave'a</button>
+            <button class="game-btn" id="btn-game-ravenfield" onclick="selectGame('ravenfield')">Ravenfield (Wkrótce)</button>
+        </div>
+
+        <!-- Wybór trybu (Speedrun / OHKO) -->
+        <div class="mode-selector-group">
+            <button class="mode-btn active" id="btn-mode-speedrun" onclick="selectMode('speedrun')">⏱️ Speedrun</button>
+            <button class="mode-btn" id="btn-mode-ohko" onclick="selectMode('ohko')">☠️ OHKO (One-Hit)</button>
+        </div>
+
+        <!-- Wyniki -->
+        <div class="lb-list-container" id="lb-list">
+            <div style="text-align:center; padding: 40px; color: rgba(255,255,255,0.5);">⏳ Ładowanie tabeli...</div>
+        </div>
+
+        <div class="lb-footer">
+            <span id="footer-status">LootLocker API • ZSAGames v1.0</span>
+            <span id="footer-game-info">Gra: Przygoda Dave'a</span>
+        </div>
+    </div>
+
+    <script>
+        const GAMES_LEADERBOARDS = {
+            dave: {
+                name: "Przygoda Dave'a",
+                speedrunKey: "37700",
+                ohkoKey: "37701",
+                available: true
+            },
+            ravenfield: {
+                name: "Ravenfield",
+                speedrunKey: "RAVENFIELD_SR_KEY",
+                ohkoKey: "RAVENFIELD_OHKO_KEY",
+                available: false
+            }
+        };
+
+        const LOOTLOCKER_CONFIG = {
+            gameKey: 'dev_e6290efcdd1c47ba93e693410e95816d',
+            gameVersion: '1.0.0.0',
+            apiUrl: 'https://api.lootlocker.io/game',
+            llVersion: '2021-03-01'
+        };
+
+        let currentGame = 'dave';
+        let currentMode = 'speedrun';
+        let sessionToken = null;
+
+        function selectGame(gameKey) {
+            currentGame = gameKey;
+            document.getElementById('btn-game-dave').className = 'game-btn' + (gameKey === 'dave' ? ' active' : '');
+            document.getElementById('btn-game-ravenfield').className = 'game-btn' + (gameKey === 'ravenfield' ? ' active' : '');
+            document.getElementById('footer-game-info').textContent = `Gra: ${GAMES_LEADERBOARDS[gameKey].name}`;
+            fetchAndRenderLeaderboard();
+        }
+
+        function selectMode(mode) {
+            currentMode = mode;
+            const srBtn = document.getElementById('btn-mode-speedrun');
+            const ohkoBtn = document.getElementById('btn-mode-ohko');
+
+            // Klasyczny przełącznik (tylko jeden przycisk ma klasę active)
+            if (mode === 'speedrun') {
+                srBtn.className = 'mode-btn active';
+                ohkoBtn.className = 'mode-btn';
+            } else {
+                ohkoBtn.className = 'mode-btn active';
+                srBtn.className = 'mode-btn';
+            }
+            fetchAndRenderLeaderboard();
+        }
+
+        async function initSession() {
+            if (sessionToken) return true;
+            try {
+                const res = await fetch(`${LOOTLOCKER_CONFIG.apiUrl}/v2/session/guest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        game_key: LOOTLOCKER_CONFIG.gameKey,
+                        game_version: LOOTLOCKER_CONFIG.gameVersion,
+                        development_mode: true
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.session_token) {
+                    sessionToken = data.session_token;
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
+        async function fetchAndRenderLeaderboard() {
+            const listEl = document.getElementById('lb-list');
+            const gameInfo = GAMES_LEADERBOARDS[currentGame];
+
+            if (!gameInfo.available) {
+                listEl.innerHTML = `
+                    <div style="text-align:center; padding: 60px 20px;">
+                        <h3 style="font-size: 1.1rem; color: var(--gold); margin-bottom: 8px;">🚀 Gra w przygotowaniu!</h3>
+                        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">Integracja rankingu dla <b>Ravenfield</b> zostanie uruchomiona wkrótce.</p>
+                    </div>`;
+                return;
+            }
+
+            listEl.innerHTML = `<div style="text-align:center; padding: 40px; color: rgba(255,255,255,0.5);">⏳ Pobieranie wyników z serwera...</div>`;
+
+            const ok = await initSession();
+            if (!ok) {
+                listEl.innerHTML = `<div style="text-align:center; padding: 40px; color: #f87171;">❌ Błąd połączenia z serwerem LootLocker.</div>`;
+                return;
+            }
+
+            const lbKey = currentMode === 'speedrun' ? gameInfo.speedrunKey : gameInfo.ohkoKey;
+
+            try {
+                const res = await fetch(`${LOOTLOCKER_CONFIG.apiUrl}/leaderboards/${lbKey}/list?count=10`, {
+                    headers: {
+                        'x-session-token': sessionToken,
+                        'LL-Version': LOOTLOCKER_CONFIG.llVersion
+                    }
+                });
+                const data = await res.json();
+                const items = data.items || [];
+
+                if (items.length === 0) {
+                    listEl.innerHTML = `<div style="text-align:center; padding: 40px; color: rgba(255,255,255,0.5);">Brak wyników w tej tabeli. Bądź pierwszy! 🏆</div>`;
+                    return;
+                }
+
+                listEl.innerHTML = items.map((item, index) => {
+                    const rank = item.rank || index + 1;
+                    const name = (item.player && item.player.name) ? item.player.name : `Gracz #${item.member_id || rank}`;
+                    
+                    let scoreText = '';
+                    if (currentMode === 'speedrun') {
+                        const ms = Number(item.score) || 0;
+                        const m = Math.floor(ms / 60000);
+                        const s = Math.floor((ms % 60000) / 1000);
+                        const cs = Math.floor((ms % 1000) / 10);
+                        scoreText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+                    } else {
+                        scoreText = `POZ. ${item.score}`;
+                    }
+
+                    const medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `#${rank}`));
+
+                    return `
+                        <div class="lb-row">
+                            <div class="lb-player">
+                                <span class="lb-rank">${medal}</span>
+                                <span class="lb-name">${name}</span>
+                            </div>
+                            <span class="lb-score" style="color: ${currentMode === 'speedrun' ? '#facc15' : '#fb923c'}">${scoreText}</span>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                listEl.innerHTML = `<div style="text-align:center; padding: 40px; color: #f87171;">⚠️ Wystąpił błąd podczas ładowania tabeli.</div>`;
+            }
+        }
+
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let t = 0;
+        function animateBg() {
+            t += 0.015;
+            ctx.fillStyle = '#050d20';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(100, 160, 255, 0.12)';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x += 30) {
+                const y = canvas.height * 0.5 + Math.sin(x * 0.005 + t) * 80;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            requestAnimationFrame(animateBg);
+        }
+        animateBg();
+
+        fetchAndRenderLeaderboard();
+    </script>
+</body>
+</html>
